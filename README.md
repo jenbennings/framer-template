@@ -1,6 +1,6 @@
-# Framer.js Server
+# Framer.js Template
 #### A local development environment for Framer.js prototypes.
-This is a simple node/gulp.js build designed to help make developing Framer.js prototypes a bit easier. So far this only works with [Sketch Framer](https://github.com/bomberstudios/sketch-framer) output.
+This is a simple node/gulp.js build designed to help make developing Framer.js prototypes a bit easier.
 
 ## Features
 - `index.html` automatically refreshes whenever changes are saved to `app.js`
