@@ -77,8 +77,15 @@ exports.Animation = (function(_super) {
   }
 
   Animation.prototype._filterAnimatableProperties = function(properties) {
-    delete properties.image;
-    return properties;
+    var animatableProperties, k, v;
+    animatableProperties = {};
+    for (k in properties) {
+      v = properties[k];
+      if (_.isNumber(v)) {
+        animatableProperties[k] = v;
+      }
+    }
+    return animatableProperties;
   };
 
   Animation.prototype._currentState = function() {
@@ -143,14 +150,21 @@ exports.Animation = (function(_super) {
   };
 
   Animation.prototype.start = function() {
-    var AnimatorClass, k, start, stateA, stateB, target, v,
+    var AnimatorClass, k, start, stateA, stateB, target, v, _ref,
       _this = this;
     AnimatorClass = this._animatorClass();
     console.debug("Animation.start " + AnimatorClass.name, this.options.curveOptions);
     this._animator = new AnimatorClass(this.options.curveOptions);
     target = this.options.layer;
     stateA = this._currentState();
-    stateB = this.options.properties;
+    stateB = {};
+    _ref = this.options.properties;
+    for (k in _ref) {
+      v = _ref[k];
+      if (stateA[k] !== v) {
+        stateB[k] = v;
+      }
+    }
     if (_.isEqual(stateA, stateB)) {
       console.warn("Nothing to animate");
     }
@@ -953,6 +967,8 @@ window.ImageView = CompatImageView;
 
 window.ScrollView = CompatScrollView;
 
+window.utils = window.Utils;
+
 
 },{"./Layer":18}],10:[function(require,module,exports){
 var Utils;
@@ -1360,6 +1376,8 @@ if (window) {
 
 Framer.Config = (require("./Config")).Config;
 
+Framer.EventEmitter = (require("./EventEmitter")).EventEmitter;
+
 Framer.BaseClass = (require("./BaseClass")).BaseClass;
 
 Framer.LayerStyle = (require("./LayerStyle")).LayerStyle;
@@ -1391,14 +1409,14 @@ Framer.resetDefaults = Defaults.reset;
 Framer.resetDefaults();
 
 
-},{"./Animation":1,"./AnimationLoop":2,"./Animators/BezierCurveAnimator":4,"./Animators/LinearAnimator":5,"./Animators/SpringDHOAnimator":6,"./Animators/SpringRK4Animator":7,"./BaseClass":8,"./Compat":9,"./Config":10,"./Debug":11,"./Defaults":12,"./Events":14,"./Frame":15,"./Importer":17,"./Layer":18,"./LayerStyle":21,"./Underscore":22,"./Utils":23}],17:[function(require,module,exports){
+},{"./Animation":1,"./AnimationLoop":2,"./Animators/BezierCurveAnimator":4,"./Animators/LinearAnimator":5,"./Animators/SpringDHOAnimator":6,"./Animators/SpringRK4Animator":7,"./BaseClass":8,"./Compat":9,"./Config":10,"./Debug":11,"./Defaults":12,"./EventEmitter":13,"./Events":14,"./Frame":15,"./Importer":17,"./Layer":18,"./LayerStyle":21,"./Underscore":22,"./Utils":23}],17:[function(require,module,exports){
 var ChromeAlert, Utils, _;
 
 _ = require("./Underscore")._;
 
 Utils = require("./Utils");
 
-ChromeAlert = "Importing layers is currently only supported on Safari. If you really want it to work with Chrome quit it, open a terminal and run:\nopen -a Google\ Chrome -–allow-file-access-from-files";
+ChromeAlert = "Importing layers is currently only supported on Safari. If you really want it to work with Chrome quit it, open a terminal and run:\nopen -a Google\ Chrome -â€“allow-file-access-from-files";
 
 exports.Importer = (function() {
   function Importer(path, extraLayerProperties) {
@@ -1519,7 +1537,7 @@ exports.Importer.load = function(path) {
 
 
 },{"./Underscore":22,"./Utils":23}],18:[function(require,module,exports){
-var Animation, BaseClass, Config, Defaults, Frame, LayerDraggable, LayerStates, LayerStyle, Utils, frameProperty, layerProperty, layerStyleProperty, _, _LayerList, _RootElement,
+var Animation, BaseClass, Config, Defaults, EventEmitter, Frame, LayerDraggable, LayerStates, LayerStyle, Utils, frameProperty, layerProperty, layerStyleProperty, _, _LayerList, _RootElement,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -1536,6 +1554,8 @@ Defaults = require("./Defaults").Defaults;
 
 BaseClass = require("./BaseClass").BaseClass;
 
+EventEmitter = require("./EventEmitter").EventEmitter;
+
 Animation = require("./Animation").Animation;
 
 Frame = require("./Frame").Frame;
@@ -1550,7 +1570,7 @@ _RootElement = null;
 
 _LayerList = [];
 
-layerProperty = function(name, cssProperty, fallback, set) {
+layerProperty = function(name, cssProperty, fallback, validator, set) {
   return {
     exportable: true,
     "default": fallback,
@@ -1558,6 +1578,9 @@ layerProperty = function(name, cssProperty, fallback, set) {
       return this._getPropertyValue(name);
     },
     set: function(value) {
+      if (validator(value) === false) {
+        throw Error("value '" + value + "' of type " + (typeof value) + " is not valid for a Layer." + name + " property");
+      }
       this._setPropertyValue(name, value);
       this.style[cssProperty] = LayerStyle[cssProperty](this);
       this.emit("change:" + name, value);
@@ -1629,27 +1652,25 @@ exports.Layer = (function(_super) {
     this._subLayers = [];
   }
 
-  Layer.define("name", Layer.simpleProperty("name", ""));
+  Layer.define("width", layerProperty("width", "width", 100, _.isNumber));
 
-  Layer.define("width", layerProperty("width", "width", 100));
+  Layer.define("height", layerProperty("height", "height", 100, _.isNumber));
 
-  Layer.define("height", layerProperty("height", "height", 100));
+  Layer.define("visible", layerProperty("visible", "display", true, _.isBool));
 
-  Layer.define("visible", layerProperty("visible", "display", true));
+  Layer.define("opacity", layerProperty("opacity", "opacity", 1, _.isNumber));
 
-  Layer.define("opacity", layerProperty("opacity", "opacity", 1));
+  Layer.define("index", layerProperty("index", "zIndex", 0, _.isNumber));
 
-  Layer.define("index", layerProperty("index", "zIndex", 0));
+  Layer.define("clip", layerProperty("clip", "overflow", true, _.isBool));
 
-  Layer.define("clip", layerProperty("clip", "overflow", true));
-
-  Layer.define("scrollHorizontal", layerProperty("scrollHorizontal", "overflowX", false, function(layer, value) {
+  Layer.define("scrollHorizontal", layerProperty("scrollHorizontal", "overflowX", false, _.isBool, function(layer, value) {
     if (value === true) {
       return layer.ignoreEvents = false;
     }
   }));
 
-  Layer.define("scrollVertical", layerProperty("scrollVertical", "overflowY", false, function(layer, value) {
+  Layer.define("scrollVertical", layerProperty("scrollVertical", "overflowY", false, _.isBool, function(layer, value) {
     if (value === true) {
       return layer.ignoreEvents = false;
     }
@@ -1664,49 +1685,49 @@ exports.Layer = (function(_super) {
     }
   });
 
-  Layer.define("ignoreEvents", layerProperty("ignoreEvents", "pointerEvents", true));
+  Layer.define("ignoreEvents", layerProperty("ignoreEvents", "pointerEvents", true, _.isBool));
 
-  Layer.define("x", layerProperty("x", "webkitTransform", 0));
+  Layer.define("x", layerProperty("x", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("y", layerProperty("y", "webkitTransform", 0));
+  Layer.define("y", layerProperty("y", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("z", layerProperty("z", "webkitTransform", 0));
+  Layer.define("z", layerProperty("z", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("scaleX", layerProperty("scaleX", "webkitTransform", 1));
+  Layer.define("scaleX", layerProperty("scaleX", "webkitTransform", 1, _.isNumber));
 
-  Layer.define("scaleY", layerProperty("scaleY", "webkitTransform", 1));
+  Layer.define("scaleY", layerProperty("scaleY", "webkitTransform", 1, _.isNumber));
 
-  Layer.define("scaleZ", layerProperty("scaleZ", "webkitTransform", 1));
+  Layer.define("scaleZ", layerProperty("scaleZ", "webkitTransform", 1, _.isNumber));
 
-  Layer.define("scale", layerProperty("scale", "webkitTransform", 1));
+  Layer.define("scale", layerProperty("scale", "webkitTransform", 1, _.isNumber));
 
-  Layer.define("originX", layerProperty("originX", "webkitTransformOrigin", 0.5));
+  Layer.define("originX", layerProperty("originX", "webkitTransformOrigin", 0.5, _.isNumber));
 
-  Layer.define("originY", layerProperty("originY", "webkitTransformOrigin", 0.5));
+  Layer.define("originY", layerProperty("originY", "webkitTransformOrigin", 0.5, _.isNumber));
 
-  Layer.define("rotationX", layerProperty("rotationX", "webkitTransform", 0));
+  Layer.define("rotationX", layerProperty("rotationX", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("rotationY", layerProperty("rotationY", "webkitTransform", 0));
+  Layer.define("rotationY", layerProperty("rotationY", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("rotationZ", layerProperty("rotationZ", "webkitTransform", 0));
+  Layer.define("rotationZ", layerProperty("rotationZ", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("rotation", layerProperty("rotationZ", "webkitTransform", 0));
+  Layer.define("rotation", layerProperty("rotationZ", "webkitTransform", 0, _.isNumber));
 
-  Layer.define("blur", layerProperty("blur", "webkitFilter", 0));
+  Layer.define("blur", layerProperty("blur", "webkitFilter", 0, _.isNumber));
 
-  Layer.define("brightness", layerProperty("brightness", "webkitFilter", 100));
+  Layer.define("brightness", layerProperty("brightness", "webkitFilter", 100, _.isNumber));
 
-  Layer.define("saturate", layerProperty("saturate", "webkitFilter", 100));
+  Layer.define("saturate", layerProperty("saturate", "webkitFilter", 100, _.isNumber));
 
-  Layer.define("hueRotate", layerProperty("hueRotate", "webkitFilter", 0));
+  Layer.define("hueRotate", layerProperty("hueRotate", "webkitFilter", 0, _.isNumber));
 
-  Layer.define("contrast", layerProperty("contrast", "webkitFilter", 100));
+  Layer.define("contrast", layerProperty("contrast", "webkitFilter", 100, _.isNumber));
 
-  Layer.define("invert", layerProperty("invert", "webkitFilter", 0));
+  Layer.define("invert", layerProperty("invert", "webkitFilter", 0, _.isNumber));
 
-  Layer.define("grayscale", layerProperty("grayscale", "webkitFilter", 0));
+  Layer.define("grayscale", layerProperty("grayscale", "webkitFilter", 0, _.isNumber));
 
-  Layer.define("sepia", layerProperty("sepia", "webkitFilter", 0));
+  Layer.define("sepia", layerProperty("sepia", "webkitFilter", 0, _.isNumber));
 
   Layer.define("backgroundColor", layerStyleProperty("backgroundColor"));
 
@@ -1715,6 +1736,18 @@ exports.Layer = (function(_super) {
   Layer.define("borderColor", layerStyleProperty("borderColor"));
 
   Layer.define("borderWidth", layerStyleProperty("borderWidth"));
+
+  Layer.define("name", {
+    exportable: true,
+    "default": "",
+    get: function() {
+      return this._getPropertyValue("name");
+    },
+    set: function(value) {
+      this._setPropertyValue("name", value);
+      return this._element.setAttribute("name", value);
+    }
+  });
 
   Layer.define("frame", {
     get: function() {
@@ -1763,10 +1796,10 @@ exports.Layer = (function(_super) {
 
   Layer.prototype.centerFrame = function() {
     var frame;
-    if (this.superView) {
+    if (this.superLayer) {
       frame = this.frame;
-      frame.midX = parseInt(this.superView.width / 2.0);
-      frame.midY = parseInt(this.superView.height / 2.0);
+      frame.midX = parseInt(this.superLayer.width / 2.0);
+      frame.midY = parseInt(this.superLayer.height / 2.0);
       return frame;
     } else {
       frame = this.frame;
@@ -2135,6 +2168,7 @@ exports.Layer = (function(_super) {
       args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
       return originalListener.call.apply(originalListener, [_this].concat(__slice.call(args), [_this]));
     };
+    originalListener.modifiedListener = listener;
     Layer.__super__.addListener.call(this, event, listener);
     this._element.addEventListener(event, listener);
     if (this._eventListeners == null) {
@@ -2148,7 +2182,10 @@ exports.Layer = (function(_super) {
   };
 
   Layer.prototype.removeListener = function(event, listener) {
-    Layer.__super__.removeListener.apply(this, arguments);
+    if (listener.modifiedListener) {
+      listener = listener.modifiedListener;
+    }
+    Layer.__super__.removeListener.call(this, event, listener);
     this._element.removeEventListener(event, listener);
     return this._eventListeners[event] = _.without(this._eventListeners[event], listener);
   };
@@ -2188,7 +2225,7 @@ exports.Layer.Layers = function() {
 };
 
 
-},{"./Animation":1,"./BaseClass":8,"./Config":10,"./Defaults":12,"./Frame":15,"./LayerDraggable":19,"./LayerStates":20,"./LayerStyle":21,"./Underscore":22,"./Utils":23}],19:[function(require,module,exports){
+},{"./Animation":1,"./BaseClass":8,"./Config":10,"./Defaults":12,"./EventEmitter":13,"./Frame":15,"./LayerDraggable":19,"./LayerStates":20,"./LayerStyle":21,"./Underscore":22,"./Utils":23}],19:[function(require,module,exports){
 var EventEmitter, Events, Utils, _,
   __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
   __hasProp = {}.hasOwnProperty,
@@ -2329,7 +2366,7 @@ exports.LayerDraggable = (function(_super) {
 
 
 },{"./EventEmitter":13,"./Events":14,"./Underscore":22,"./Utils":23}],20:[function(require,module,exports){
-var BaseClass, Events, LayerStatesIgnoredKeys, _,
+var BaseClass, Defaults, Events, LayerStatesIgnoredKeys, _,
   __hasProp = {}.hasOwnProperty,
   __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
@@ -2339,6 +2376,8 @@ _ = require("./Underscore")._;
 Events = require("./Events").Events;
 
 BaseClass = require("./BaseClass").BaseClass;
+
+Defaults = require("./Defaults").Defaults;
 
 LayerStatesIgnoredKeys = ["ignoreEvents"];
 
@@ -2353,9 +2392,7 @@ exports.LayerStates = (function(_super) {
     this.layer = layer;
     this._states = {};
     this._orderedStates = [];
-    this.animationOptions = {
-      curve: "spring"
-    };
+    this.animationOptions = {};
     this.add("default", this.layer.properties);
     this._currentState = "default";
     this._previousStates = [];
@@ -2392,11 +2429,11 @@ exports.LayerStates = (function(_super) {
     return this._orderedStates = _.without(this._orderedStates, stateName);
   };
 
-  LayerStates.prototype["switch"] = function(stateName, animationOptions) {
-    var animatingKeys, animation, k, v, _ref,
+  LayerStates.prototype["switch"] = function(stateName, animationOptions, instant) {
+    var animatingKeys, properties, propertyName, value, _ref,
       _this = this;
-    if (stateName === this._currentState) {
-      return;
+    if (instant == null) {
+      instant = false;
     }
     if (!this._states.hasOwnProperty(stateName)) {
       throw Error("No such state: '" + stateName + "'");
@@ -2404,36 +2441,39 @@ exports.LayerStates = (function(_super) {
     this.emit(Events.StateWillSwitch, this._currentState, stateName, this);
     this._previousStates.push(this._currentState);
     this._currentState = stateName;
-    if (animationOptions == null) {
-      animationOptions = this.animationOptions;
-    }
-    animationOptions.properties = {};
+    properties = {};
     animatingKeys = this.animatingKeys();
     _ref = this._states[stateName];
-    for (k in _ref) {
-      v = _ref[k];
-      if (__indexOf.call(LayerStatesIgnoredKeys, k) >= 0) {
+    for (propertyName in _ref) {
+      value = _ref[propertyName];
+      if (__indexOf.call(LayerStatesIgnoredKeys, propertyName) >= 0) {
         continue;
       }
-      if (__indexOf.call(animatingKeys, k) < 0) {
+      if (__indexOf.call(animatingKeys, propertyName) < 0) {
         continue;
       }
-      if (_.isFunction(v)) {
-        v = v.call(this.layer, this.layer, stateName);
+      if (_.isFunction(value)) {
+        value = value.call(this.layer, this.layer, stateName);
       }
-      animationOptions.properties[k] = v;
+      properties[propertyName] = value;
     }
-    animation = this.layer.animate(animationOptions);
-    return animation.on("stop", function() {
-      return _this.emit(Events.StateDidSwitch, _.last(_this._previousStates), stateName, _this);
-    });
+    if (instant === true) {
+      this.layer.properties = properties;
+      return this.emit(Events.StateDidSwitch, _.last(this._previousStates), stateName, this);
+    } else {
+      if (animationOptions == null) {
+        animationOptions = this.animationOptions;
+      }
+      animationOptions.properties = properties;
+      this._animation = this.layer.animate(animationOptions);
+      return this._animation.on("stop", function() {
+        return _this.emit(Events.StateDidSwitch, _.last(_this._previousStates), stateName, _this);
+      });
+    }
   };
 
   LayerStates.prototype.switchInstant = function(stateName) {
-    return this["switch"](stateName, {
-      curve: "linear",
-      time: 0
-    });
+    return this["switch"](stateName, null, true);
   };
 
   LayerStates.define("state", {
@@ -2491,7 +2531,7 @@ exports.LayerStates = (function(_super) {
 })(BaseClass);
 
 
-},{"./BaseClass":8,"./Events":14,"./Underscore":22}],21:[function(require,module,exports){
+},{"./BaseClass":8,"./Defaults":12,"./Events":14,"./Underscore":22}],21:[function(require,module,exports){
 var filterFormat, _WebkitProperties;
 
 filterFormat = function(value, unit) {
@@ -2580,6 +2620,10 @@ _ = require("lodash");
 _.str = require('underscore.string');
 
 _.mixin(_.str.exports());
+
+_.isBool = function(v) {
+  return typeof v === 'boolean';
+};
 
 exports._ = _;
 
@@ -2835,6 +2879,25 @@ Utils.mapRange = function(value, fromLow, fromHigh, toLow, toHigh) {
   return toLow + (((value - fromLow) / (fromHigh - fromLow)) * (toHigh - toLow));
 };
 
+Utils.modulate = function(value, rangeA, rangeB, limit) {
+  var fromHigh, fromLow, result, toHigh, toLow;
+  if (limit == null) {
+    limit = false;
+  }
+  fromLow = rangeA[0], fromHigh = rangeA[1];
+  toLow = rangeB[0], toHigh = rangeB[1];
+  result = toLow + (((value - fromLow) / (fromHigh - fromLow)) * (toHigh - toLow));
+  if (limit === true) {
+    if (result < toLow) {
+      return toLow;
+    }
+    if (result > toHigh) {
+      return toHigh;
+    }
+  }
+  return result;
+};
+
 Utils.parseFunction = function(str) {
   var result;
   result = {
@@ -2890,6 +2953,25 @@ Utils.domLoadScript = function(url, callback) {
   return script;
 };
 
+Utils.domLoadData = function(path, callback) {
+  var request;
+  request = new XMLHttpRequest();
+  request.addEventListener("load", function() {
+    return callback(null, request.responseText);
+  }, false);
+  request.addEventListener("error", function() {
+    return callback(true, null);
+  }, false);
+  request.open("GET", path, true);
+  return request.send(null);
+};
+
+Utils.domLoadJSON = function(path, callback) {
+  return Utils.domLoadData(path, function(err, data) {
+    return callback(err, JSON.parse(data));
+  });
+};
+
 Utils.domLoadDataSync = function(path) {
   var data, e, request;
   request = new XMLHttpRequest();
@@ -2909,6 +2991,13 @@ Utils.domLoadDataSync = function(path) {
 
 Utils.domLoadJSONSync = function(path) {
   return JSON.parse(Utils.domLoadDataSync(path));
+};
+
+Utils.domLoadScriptSync = function(path) {
+  var scriptData;
+  scriptData = Utils.domLoadDataSync(path);
+  eval(scriptData);
+  return scriptData;
 };
 
 Utils.pointMin = function() {
@@ -10433,7 +10522,7 @@ var global=typeof self !== "undefined" ? self : typeof window !== "undefined" ? 
     slugify: function(str) {
       if (str == null) return '';
 
-      var from  = "ąàáäâãåæăćęèéëêìíïîłńòóöôõøśșțùúüûñçżź",
+      var from  = "Ä…Ã Ã¡Ã¤Ã¢Ã£Ã¥Ã¦ÄƒÄ‡Ä™Ã¨Ã©Ã«ÃªÃ¬Ã­Ã¯Ã®Å‚Å„Ã²Ã³Ã¶Ã´ÃµÃ¸Å›È™È›Ã¹ÃºÃ¼Ã»Ã±Ã§Å¼Åº",
           to    = "aaaaaaaaaceeeeeiiiilnoooooosstuuuunczz",
           regex = new RegExp(defaultToWhiteSpace(from), 'g');
 
