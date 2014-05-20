@@ -6,6 +6,7 @@ This is a simple node/gulp.js build designed to help make developing Framer.js p
 - `index.html` automatically refreshes whenever changes are saved to `app.js`
 - Prototypes are accessible to other devices on your local network (use `ifconfig` to get the IP)
   * These devices are also automatically refreshed when changes are made to `app.js`
+- Tisho Georgiev’s [Framer Presentation Templates](https://github.com/tisho/framer-templates)
 
 ## Installation
 You'll need to have node & grunt.js installed ([this guide](http://travismaynard.com/writing/getting-started-with-gulp) is a good starting point).
