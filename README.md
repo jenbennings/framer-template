@@ -18,3 +18,8 @@ You'll need to have node & grunt.js installed ([this guide](http://travismaynard
 5. It's happening!
 
 ![](http://i.imgur.com/vv49C.gif)
+
+## To-do
+
+- Add gulp-coffee to gulp tasks
+- Learn coffeescript :bowtie:
