@@ -1,4 +1,5 @@
 var gulp = require('gulp');
+var coffee = require('gulp-coffee');
 var EXPRESS_PORT = 4000;
 var EXPRESS_ROOT = __dirname;
 var LIVERELOAD_PORT = 35729;
@@ -25,6 +26,17 @@ function notifyLivereload(event) {
     }
   });
 }
+
+gulp.task('coffee', function() {
+  gulp.src('*.coffee')
+    .pipe(coffee())
+    .pipe(gulp.dest(''))
+});
+
+var coffeeStream = coffee({bare: true});
+
+// Attach listener
+coffeeStream.on('error', function(err) {});
 
 gulp.task('default', function () {
   startExpress();
