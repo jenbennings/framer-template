@@ -22,5 +22,5 @@ You'll need to have node & grunt.js installed ([this guide](http://travismaynard
 
 ## To-do
 
-~~- Add gulp-coffee to gulp tasks~~
+- ~~Add gulp-coffee to gulp tasks~~
 - Learn coffeescript :bowtie:
