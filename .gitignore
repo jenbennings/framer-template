@@ -1,3 +1,6 @@
 # Folder view configuration files
 .DS_Store
 node_modules
+
+# CoffeeScript output
+app.js
