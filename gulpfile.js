@@ -33,14 +33,10 @@ gulp.task('coffee', function() {
     .pipe(gulp.dest(''))
 });
 
-var coffeeStream = coffee({bare: true});
-
-// Attach listener
-coffeeStream.on('error', function(err) {});
-
 gulp.task('default', function () {
   startExpress();
   startLivereload();
   gulp.watch('*.js', notifyLivereload);
+  gulp.watch('*.coffee', ['coffee'], notifyLivereload)
   gulp.watch('images/*.png', notifyLivereload);
 });
