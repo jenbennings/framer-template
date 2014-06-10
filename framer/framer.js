@@ -59,11 +59,8 @@ exports.Animation = (function(_super) {
       time: 1,
       repeat: 0,
       delay: 0,
-      debug: true
+      debug: false
     });
-    if (options.layer === null) {
-      console.error("Animation: missing layer");
-    }
     if (options.origin) {
       console.warn("Animation.origin: please use layer.originX and layer.originY");
     }
@@ -152,8 +149,13 @@ exports.Animation = (function(_super) {
   Animation.prototype.start = function() {
     var AnimatorClass, k, start, stateA, stateB, target, v, _ref,
       _this = this;
+    if (this.options.layer === null) {
+      console.error("Animation: missing layer");
+    }
     AnimatorClass = this._animatorClass();
-    console.debug("Animation.start " + AnimatorClass.name, this.options.curveOptions);
+    if (this.options.debug) {
+      console.log("Animation.start " + AnimatorClass.name, this.options.curveOptions);
+    }
     this._animator = new AnimatorClass(this.options.curveOptions);
     target = this.options.layer;
     stateA = this._currentState();
@@ -168,10 +170,12 @@ exports.Animation = (function(_super) {
     if (_.isEqual(stateA, stateB)) {
       console.warn("Nothing to animate");
     }
-    console.debug("Animation.start");
-    for (k in stateB) {
-      v = stateB[k];
-      console.debug("\t" + k + ": " + stateA[k] + " -> " + stateB[k]);
+    if (this.options.debug) {
+      console.log("Animation.start");
+      for (k in stateB) {
+        v = stateB[k];
+        console.log("\t" + k + ": " + stateA[k] + " -> " + stateB[k]);
+      }
     }
     this._animator.on("start", function() {
       return _this.emit("start");
@@ -210,7 +214,10 @@ exports.Animation = (function(_super) {
   };
 
   Animation.prototype.stop = function() {
-    this._animator.stop();
+    var _ref;
+    if ((_ref = this._animator) != null) {
+      _ref.stop();
+    }
     return _runningAnimations = _.without(_runningAnimations, this);
   };
 
@@ -276,16 +283,12 @@ AnimationLoop = {
     return window.requestAnimationFrame(AnimationLoop._tick);
   },
   _stop: function() {
-    console.debug("AnimationLoop._stop");
     return AnimationLoop._running = false;
   },
   _tick: function() {
     var animator, delta, removeAnimators, time, _i, _j, _len, _len1, _ref;
     if (!AnimationLoop._animators.length) {
       return AnimationLoop._stop();
-    }
-    if (AnimationLoop._sessionTime === 0) {
-      console.debug("AnimationLoop._start");
     }
     AnimationLoop._frameCounter++;
     time = Utils.getTime();
@@ -342,7 +345,7 @@ AnimationLoop = require("./AnimationLoop").AnimationLoop;
 exports.Animator = (function(_super) {
   __extends(Animator, _super);
 
-  "The animator class is a very simple class that\n - Takes a set of input values at setup({input values})\n  - Emits an output value for progress (0 -> 1) in value(progress)";
+  "The animator class is a very simple class that\n	- Takes a set of input values at setup({input values})\n	- Emits an output value for progress (0 -> 1) in value(progress)";
 
   function Animator(options) {
     if (options == null) {
@@ -1947,6 +1950,9 @@ exports.Layer = (function(_super) {
       this.backgroundColor = null;
       this._setPropertyValue("image", value);
       imageUrl = value;
+      if (Utils.isLocal()) {
+        imageUrl += "?nocache=" + (Date.now());
+      }
       if ((_ref = this.events) != null ? _ref.hasOwnProperty("load" || ((_ref1 = this.events) != null ? _ref1.hasOwnProperty("error") : void 0)) : void 0) {
         loader = new Image();
         loader.name = imageUrl;
@@ -2195,7 +2201,9 @@ exports.Layer = (function(_super) {
     }
     Layer.__super__.removeListener.call(this, event, listener);
     this._element.removeEventListener(event, listener);
-    return this._eventListeners[event] = _.without(this._eventListeners[event], listener);
+    if (this._eventListeners) {
+      return this._eventListeners[event] = _.without(this._eventListeners[event], listener);
+    }
   };
 
   Layer.prototype.removeAllListeners = function() {
@@ -2631,7 +2639,7 @@ exports.LayerStyle = {
     return css.join(" ");
   },
   webkitTransform: function(layer) {
-    return "    translate3d(" + layer.x + "px," + layer.y + "px," + layer.z + "px)    scale(" + layer.scale + ")    scale3d(" + layer.scaleX + "," + layer.scaleY + "," + layer.scaleZ + ")     rotateX(" + layer.rotationX + "deg)     rotateY(" + layer.rotationY + "deg)     rotateZ(" + layer.rotationZ + "deg)     ";
+    return "		translate3d(" + layer.x + "px," + layer.y + "px," + layer.z + "px) 		scale(" + layer.scale + ")		scale3d(" + layer.scaleX + "," + layer.scaleY + "," + layer.scaleZ + ") 		rotateX(" + layer.rotationX + "deg) 		rotateY(" + layer.rotationY + "deg) 		rotateZ(" + layer.rotationZ + "deg) 		";
   },
   webkitTransformOrigin: function(layer) {
     return "" + (layer.originX * 100) + "% " + (layer.originY * 100) + "%";
