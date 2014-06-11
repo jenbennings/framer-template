@@ -10,7 +10,7 @@ This is a simple node/gulp.js build designed to help make developing Framer.js p
 - CoffeeScript compilation
 
 ## Installation
-You'll need to have node & grunt.js installed ([this guide](http://travismaynard.com/writing/getting-started-with-gulp) is a good starting point).
+You'll need to have node & gulp.js installed ([this guide](http://travismaynard.com/writing/getting-started-with-gulp) is a good starting point).
 
 1. `git clone --depth=1 git@github.com:jenbennings/framer-template.git myawesomeprototypedir` to download a lean version of the repo
 2. `rm -rf !$/.git` to remove git (optional)
